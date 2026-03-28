@@ -1,0 +1,70 @@
+# ──────────────────────────────────────────────
+# Deployment: FastAPI бэкенд
+# ──────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eventhub-backend
+  namespace: eventhub
+  labels:
+    app: eventhub-backend
+spec:
+  replicas: 2                       # 2 реплики для отказоустойчивости
+  selector:
+    matchLabels:
+      app: eventhub-backend
+  template:
+    metadata:
+      labels:
+        app: eventhub-backend
+    spec:
+      containers:
+        - name: backend
+          image: eventhub-backend:1.0.0   # собирается из backend/Dockerfile
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: APP_ENV
+              value: "production"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          # Kubernetes проверяет, жив ли контейнер
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          # Kubernetes проверяет, готов ли контейнер принимать трафик
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+---
+# ──────────────────────────────────────────────
+# Service: доступ к бэкенду внутри кластера
+# ──────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: eventhub-backend
+  namespace: eventhub
+  labels:
+    app: eventhub-backend
+spec:
+  selector:
+    app: eventhub-backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP           # доступен только внутри кластера (через nginx)

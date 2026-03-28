@@ -1,0 +1,60 @@
+# ──────────────────────────────────────────────
+# Deployment: Flutter Web (nginx)
+# ──────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eventhub-frontend
+  namespace: eventhub
+  labels:
+    app: eventhub-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: eventhub-frontend
+  template:
+    metadata:
+      labels:
+        app: eventhub-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: eventhub-frontend:1.0.0   # собирается из flutter_app/Dockerfile
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 15
+
+---
+# ──────────────────────────────────────────────
+# Service: LoadBalancer — внешний доступ
+# ──────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: eventhub-frontend
+  namespace: eventhub
+  labels:
+    app: eventhub-frontend
+spec:
+  selector:
+    app: eventhub-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer    # получает внешний IP от облачного провайдера
+                        # (в Minikube: minikube service eventhub-frontend -n eventhub)
